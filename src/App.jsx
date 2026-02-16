@@ -4,7 +4,8 @@ import {
   Target, CheckCircle, Heart, Sparkles, ArrowRight, 
   LayoutDashboard, LogOut, Settings, User, Trash2, 
   BarChart3, Save, X, Timer, Award, Play, Calendar,
-  AlertCircle, RefreshCw, Eye, EyeOff, Loader2, Lock
+  AlertCircle, RefreshCw, Eye, EyeOff, Loader2, Lock, Users,
+  Maximize, Minimize
 } from 'lucide-react';
 
 // Import Firebase functions
@@ -59,73 +60,6 @@ const calculateStreak = (currentStreak, lastStudyDate) => {
   if (diffDays === 0) return currentStreak; 
   if (diffDays === 1) return currentStreak + 1; 
   return 1; 
-};
-
-// --- HELPER COMPONENTS ---
-const Avatar = ({ icon, size = 'text-2xl', bg = 'bg-slate-100', className = '' }) => (
-  <div className={`w-12 h-12 ${bg} dark:bg-slate-700 rounded-full flex items-center justify-center ${size} shadow-sm border border-slate-200 dark:border-slate-600 ${className}`}>
-    {icon}
-  </div>
-);
-
-const ProgressBar = ({ current, max, color = 'bg-indigo-500', height = 'h-2' }) => {
-  const percentage = Math.min(100, Math.max(0, (current / max) * 100));
-  return (
-    <div className={`w-full ${height} bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden`}>
-      <div className={`${height} ${color} transition-all duration-500 ease-out`} style={{ width: `${percentage}%` }} />
-    </div>
-  );
-};
-
-const CalendarHeatmap = ({ user, feed }) => {
-  const today = new Date();
-  const dates = [];
-  for (let i = 140; i >= 0; i--) {
-    const d = new Date();
-    d.setDate(today.getDate() - i);
-    dates.push(d);
-  }
-
-  const activityMap = {};
-  const userLogs = feed.filter(f => f.userId === user.id || f.userName === user.name);
-  
-  userLogs.forEach(log => {
-    let dateStr;
-    if (log.timestamp?.toDate) {
-       dateStr = log.timestamp.toDate().toDateString();
-    } else if (log.timestamp) {
-       dateStr = new Date(log.timestamp).toDateString();
-    } else return;
-    
-    if (!activityMap[dateStr]) activityMap[dateStr] = 0;
-    activityMap[dateStr] += (log.duration || 0);
-  });
-
-  const getColor = (minutes) => {
-    if (!minutes) return 'bg-slate-200 dark:bg-slate-700';
-    if (minutes < 30) return 'bg-emerald-200 dark:bg-emerald-900';
-    if (minutes < 60) return 'bg-emerald-300 dark:bg-emerald-700';
-    if (minutes < 120) return 'bg-emerald-400 dark:bg-emerald-600';
-    return 'bg-emerald-600 dark:bg-emerald-500';
-  };
-
-  return (
-    <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
-      <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
-        <Calendar size={20} className="text-slate-400" /> Study Consistency
-      </h3>
-      <div className="flex flex-wrap gap-1.5 justify-center sm:justify-start">
-        {dates.map((date, idx) => {
-          const dateStr = date.toDateString();
-          return (
-            <div key={idx} title={`${dateStr}: ${activityMap[dateStr] || 0} mins`}
-              className={`w-3 h-3 sm:w-4 sm:h-4 rounded-sm ${getColor(activityMap[dateStr])} transition-all hover:scale-125 cursor-default`}
-            ></div>
-          );
-        })}
-      </div>
-    </div>
-  );
 };
 
 // --- ERROR BOUNDARY ---
@@ -416,13 +350,11 @@ export default function App() {
 
 const LoginScreen = ({ users, onLogin, onSignup, isSaving }) => {
   const [mode, setMode] = useState(Object.keys(users).length === 0 ? 'signup' : 'login');
-  // Signup State
   const [name, setName] = useState('');
   const [role, setRole] = useState('');
   const [sub1, setSub1] = useState('');
   const [sub2, setSub2] = useState('');
   const [signupPassword, setSignupPassword] = useState('');
-  // Login State
   const [selectedUser, setSelectedUser] = useState(null);
   const [loginPassword, setLoginPassword] = useState('');
 
@@ -497,7 +429,6 @@ const LoginScreen = ({ users, onLogin, onSignup, isSaving }) => {
 const Header = ({ view, isSpying, displayUser, otherUsers, onSetSpyTarget, onLogClick, isSaving }) => {
   const [showSpyMenu, setShowSpyMenu] = useState(false);
 
-  // Close menu when clicking outside (simple implementation)
   useEffect(() => {
     const closeMenu = () => setShowSpyMenu(false);
     if(showSpyMenu) window.addEventListener('click', closeMenu);
@@ -514,13 +445,9 @@ const Header = ({ view, isSpying, displayUser, otherUsers, onSetSpyTarget, onLog
       </div>
       
       <div className="flex items-center gap-3">
-        {/* Focusing Indicator (shows only if SOMEONE ELSE is focusing AND time hasn't run out) */}
         {otherUsers.map(u => {
-           // Check if active AND if time is still valid (endTime > now)
            const isFocusing = u.focusStatus?.isActive && u.focusStatus?.endTime && u.focusStatus.endTime > Date.now();
-           
            if (!isFocusing) return null;
-           
            return (
             <div key={u.id} className="hidden sm:flex items-center gap-2 bg-rose-50 text-rose-600 px-3 py-1.5 rounded-full text-xs font-bold animate-pulse border border-rose-100">
               <div className="w-2 h-2 bg-rose-500 rounded-full animate-ping" />{u.name} is focusing...
@@ -534,29 +461,20 @@ const Header = ({ view, isSpying, displayUser, otherUsers, onSetSpyTarget, onLog
           </button>
         )}
 
-        {/* Multi-Profile Switcher */}
         {otherUsers.length > 0 && (
           <div className="relative" onClick={(e) => e.stopPropagation()}>
             <button 
               onClick={() => isSpying ? onSetSpyTarget(null) : (otherUsers.length === 1 ? onSetSpyTarget(otherUsers[0].id) : setShowSpyMenu(!showSpyMenu))}
               className={`flex items-center gap-2 px-4 py-2 rounded-full font-bold text-sm border transition-all ${isSpying ? 'bg-amber-100 text-amber-800 border-amber-200' : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'}`}
             >
-              {isSpying ? (
-                <><ArrowRight size={14} /> Back to Me</>
-              ) : (
-                <><Eye size={14} /> {otherUsers.length === 1 ? `View ${otherUsers[0].name}` : "View Partner"}</>
-              )}
+              {isSpying ? <><ArrowRight size={14} /> Back to Me</> : <><Eye size={14} /> {otherUsers.length === 1 ? `View ${otherUsers[0].name}` : "View Partner"}</>}
             </button>
             
             {showSpyMenu && !isSpying && (
               <div className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 overflow-hidden z-50">
                 <div className="p-2 text-xs font-bold text-slate-400 uppercase">Select Profile</div>
                 {otherUsers.map(u => (
-                  <button 
-                    key={u.id}
-                    onClick={() => { onSetSpyTarget(u.id); setShowSpyMenu(false); }}
-                    className="w-full text-left px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-3"
-                  >
+                  <button key={u.id} onClick={() => { onSetSpyTarget(u.id); setShowSpyMenu(false); }} className="w-full text-left px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-3">
                     <Avatar icon={u.avatar || '👤'} size="text-sm" className="w-6 h-6"/>
                     <span className="font-bold text-slate-700 dark:text-slate-200">{u.name}</span>
                   </button>
@@ -572,22 +490,23 @@ const Header = ({ view, isSpying, displayUser, otherUsers, onSetSpyTarget, onLog
 
 const Dashboard = ({ displayUser, isSpying, feed }) => (
   <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fadeIn">
+    {/* Spy Mode styling fix: Force text colors for high contrast */}
     <div className={`lg:col-span-2 rounded-3xl p-6 shadow-sm border relative overflow-hidden ${isSpying ? 'bg-amber-50 border-amber-200' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700'}`}>
       <div className="relative z-10 flex justify-between items-start">
         <div className="flex gap-4">
           <Avatar icon={displayUser.avatar || '👤'} size="text-4xl" className="bg-white shadow-md" />
           <div>
-            <h2 className="text-3xl font-bold text-slate-900 dark:text-white">{displayUser.name}</h2>
-            <p className="text-slate-500 font-medium">{displayUser.role}</p>
+            <h2 className={`text-3xl font-bold ${isSpying ? 'text-slate-900' : 'text-slate-900 dark:text-white'}`}>{displayUser.name}</h2>
+            <p className={`${isSpying ? 'text-slate-600' : 'text-slate-500'} font-medium`}>{displayUser.role}</p>
             <div className="flex gap-4 mt-4">
-              <div><p className="text-xs font-bold uppercase text-slate-400">Level {displayUser.level}</p><p className="text-2xl font-bold text-slate-900 dark:text-white">{displayUser.xp} XP</p></div>
+              <div><p className={`text-xs font-bold uppercase ${isSpying ? 'text-slate-500' : 'text-slate-400'}`}>Level {displayUser.level}</p><p className={`text-2xl font-bold ${isSpying ? 'text-slate-900' : 'text-slate-900 dark:text-white'}`}>{displayUser.xp} XP</p></div>
               <div className="w-px bg-slate-200 dark:bg-slate-600 h-10 self-center" />
-              <div><p className="text-xs font-bold uppercase text-slate-400">Streak</p><div className="flex items-center gap-1 text-orange-500"><Flame size={20} fill="currentColor" /><span className="text-2xl font-bold">{displayUser.streak}</span></div></div>
+              <div><p className={`text-xs font-bold uppercase ${isSpying ? 'text-slate-500' : 'text-slate-400'}`}>Streak</p><div className="flex items-center gap-1 text-orange-500"><Flame size={20} fill="currentColor" /><span className="text-2xl font-bold">{displayUser.streak}</span></div></div>
             </div>
           </div>
         </div>
         <div className="w-40 hidden sm:block">
-           <div className="flex justify-between text-xs font-bold mb-1 text-slate-500"><span>Next Level</span><span>{Math.floor((displayUser.xp/(displayUser.maxXp || 1))*100)}%</span></div>
+           <div className={`flex justify-between text-xs font-bold mb-1 ${isSpying ? 'text-slate-500' : 'text-slate-500'}`}><span>Next Level</span><span>{Math.floor((displayUser.xp/(displayUser.maxXp || 1))*100)}%</span></div>
            <ProgressBar current={displayUser.xp} max={displayUser.maxXp || 1} />
         </div>
       </div>
@@ -618,7 +537,10 @@ const Dashboard = ({ displayUser, isSpying, feed }) => (
           <div key={item.id} className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 text-sm">
             <div className="flex justify-between items-start mb-2">
               <span className="font-bold text-slate-900 dark:text-white">{item.userName}</span>
-              <span className="text-xs text-slate-400">{new Date(item.timestamp?.toDate ? item.timestamp.toDate() : item.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+              {/* Detailed Date & Time */}
+              <span className="text-xs text-slate-400">
+                {new Date(item.timestamp?.toDate ? item.timestamp.toDate() : item.timestamp).toLocaleDateString([], {month: 'short', day: 'numeric'})}, {new Date(item.timestamp?.toDate ? item.timestamp.toDate() : item.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+              </span>
             </div>
             <p className="text-slate-600 dark:text-slate-300">Studied <span className="text-indigo-600 dark:text-indigo-400 font-bold">{item.subject}</span> for {item.duration}m</p>
             {item.note && <div className="mt-2 p-2 bg-slate-50 dark:bg-slate-900 rounded italic text-xs border-l-2 border-slate-300 dark:border-slate-600 text-slate-500">"{item.note}"</div>}
@@ -629,6 +551,85 @@ const Dashboard = ({ displayUser, isSpying, feed }) => (
     </div>
   </div>
 );
+
+const FocusTimer = ({ user, onStatusChange, onComplete }) => {
+  const [isActive, setIsActive] = useState(false);
+  const [duration, setDuration] = useState(25);
+  const [timeLeft, setTimeLeft] = useState(25 * 60);
+  const [subject, setSubject] = useState(user.subjects?.[0] || {});
+  
+  useEffect(() => {
+    // Only update timeLeft when duration changes IF timer is NOT active
+    if (!isActive) setTimeLeft(duration * 60);
+  }, [duration]); // removed isActive from deps
+
+  useEffect(() => {
+    let int;
+    if (isActive && timeLeft > 0) int = setInterval(() => setTimeLeft(t => t - 1), 1000);
+    else if (timeLeft === 0 && isActive) { 
+        handleStop(); 
+        onComplete(subject, duration); 
+    }
+    return () => clearInterval(int);
+  }, [isActive, timeLeft]);
+
+  const toggle = () => {
+    if(!isActive) { 
+        setIsActive(true); 
+        onStatusChange(true, duration, subject.name);
+        // Request Fullscreen on Mobile
+        if (document.documentElement.requestFullscreen) {
+            document.documentElement.requestFullscreen().catch((e) => console.log(e));
+        }
+    } else { 
+        setIsActive(false); 
+        onStatusChange(false); 
+    }
+  };
+
+  const handleStop = () => {
+      setIsActive(false);
+      onStatusChange(false);
+      if (document.exitFullscreen) {
+        document.exitFullscreen().catch((e) => console.log(e));
+      }
+  }
+
+  return (
+    <div className="max-w-md mx-auto text-center py-10">
+      <div className={`w-64 h-64 mx-auto rounded-full border-8 flex items-center justify-center mb-8 transition-colors ${isActive ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/10' : 'border-slate-200 dark:border-slate-700'}`}>
+        <div className="text-5xl font-mono font-bold text-slate-800 dark:text-white">
+          {Math.floor(timeLeft/60).toString().padStart(2,'0')}:{(timeLeft%60).toString().padStart(2,'0')}
+        </div>
+      </div>
+      {!isActive ? (
+        <div className="space-y-6">
+          <div className="flex gap-2 justify-center flex-wrap">
+            {user.subjects?.map(s => <button key={s.id} onClick={() => setSubject(s)} className={`px-3 py-1 rounded-full text-xs font-bold border ${subject.id === s.id ? 'bg-indigo-100 dark:bg-indigo-900/30 border-indigo-200 text-indigo-700 dark:text-indigo-300' : 'border-slate-200 dark:border-slate-700 text-slate-500'}`}>{s.name}</button>)}
+          </div>
+          <div className="max-w-xs mx-auto">
+             <div className="flex justify-between mb-2 text-sm font-bold text-slate-500 uppercase">
+               <span>Duration</span>
+               <span className="text-indigo-600">{Math.floor(duration / 60)}h {duration % 60}m</span>
+             </div>
+             <input 
+               type="range" min="5" max="720" step="5" 
+               value={duration} 
+               onChange={(e) => setDuration(Number(e.target.value))}
+               className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+             />
+          </div>
+          <button onClick={toggle} className="bg-indigo-600 text-white px-8 py-3 rounded-xl font-bold shadow-lg hover:scale-105 transition-transform">Start Focus</button>
+        </div>
+      ) : (
+        <div className="flex gap-4 justify-center">
+          <button onClick={toggle} className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-white px-6 py-3 rounded-xl font-bold">Pause</button>
+          <button onClick={() => { handleStop(); onComplete(subject, duration - Math.ceil(timeLeft/60)); }} className="bg-emerald-500 text-white px-6 py-3 rounded-xl font-bold">Finish Early</button>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const SettingsView = ({ user, onUpdate, onLogout, onReset }) => {
   const [name, setName] = useState(user.name);
@@ -692,221 +693,6 @@ const Input = ({ label, value, onChange, placeholder, type = "text" }) => (
   </div>
 );
 
-const LogModal = ({ user, onClose, onSubmit, isSaving }) => {
-  const [sub, setSub] = useState(user.subjects?.[0] || {});
-  const [dur, setDur] = useState(30);
-  const [note, setNote] = useState('');
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadeIn">
-      <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden">
-        <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
-          <h2 className="text-xl font-bold text-slate-800 dark:text-white">Log Session</h2>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full"><X size={20} className="text-slate-500"/></button>
-        </div>
-        <div className="p-6 space-y-6">
-          <div>
-            <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">Subject</label>
-            <div className="grid grid-cols-2 gap-2">
-              {user.subjects?.map(s => (
-                <button key={s.id} onClick={() => setSub(s)} className={`p-3 rounded-xl border text-sm font-bold transition-colors ${sub.id === s.id ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400' : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'}`}>
-                  {s.name}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div>
-            <div className="flex justify-between mb-2">
-              <label className="text-xs font-bold text-slate-500 uppercase">Duration</label>
-              <span className="font-bold text-indigo-600">{dur} min</span>
-            </div>
-            <input type="range" min="5" max="720" step="5" value={dur} onChange={(e) => setDur(e.target.value)} className="w-full h-2 bg-slate-200 rounded-lg accent-indigo-600 cursor-pointer" />
-          </div>
-          <Input placeholder="What did you learn?" value={note} onChange={setNote} />
-          <button onClick={() => onSubmit(sub, dur, note)} disabled={isSaving} className="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold text-lg shadow-lg hover:bg-indigo-700 flex justify-center items-center">
-            {isSaving ? <Loader2 className="animate-spin" /> : 'Log & Earn XP'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// ... Reused Components (FocusTimer, Analytics, GoalsView, Sidebar, etc.)
-// (Ensure FocusTimer uses text-slate-800 dark:text-white for countdown)
-const FocusTimer = ({ user, onStatusChange, onComplete }) => {
-  const [isActive, setIsActive] = useState(false);
-  const [duration, setDuration] = useState(25);
-  const [timeLeft, setTimeLeft] = useState(25 * 60);
-  const [subject, setSubject] = useState(user.subjects?.[0] || {});
-  
-  useEffect(() => {
-    if (!isActive) setTimeLeft(duration * 60);
-  }, [duration, isActive]);
-
-  useEffect(() => {
-    let int;
-    if (isActive && timeLeft > 0) int = setInterval(() => setTimeLeft(t => t - 1), 1000);
-    else if (timeLeft === 0 && isActive) { setIsActive(false); onStatusChange(false); }
-    return () => clearInterval(int);
-  }, [isActive, timeLeft]);
-
-  const toggle = () => {
-    if(!isActive) { setIsActive(true); onStatusChange(true, duration, subject.name); }
-    else { setIsActive(false); onStatusChange(false); }
-  };
-
-  return (
-    <div className="max-w-md mx-auto text-center py-10">
-      <div className={`w-64 h-64 mx-auto rounded-full border-8 flex items-center justify-center mb-8 transition-colors ${isActive ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/10' : 'border-slate-200 dark:border-slate-700'}`}>
-        <div className="text-5xl font-mono font-bold text-slate-800 dark:text-white">
-          {Math.floor(timeLeft/60).toString().padStart(2,'0')}:{(timeLeft%60).toString().padStart(2,'0')}
-        </div>
-      </div>
-      {!isActive ? (
-        <div className="space-y-6">
-          <div className="flex gap-2 justify-center flex-wrap">
-            {user.subjects?.map(s => <button key={s.id} onClick={() => setSubject(s)} className={`px-3 py-1 rounded-full text-xs font-bold border ${subject.id === s.id ? 'bg-indigo-100 dark:bg-indigo-900/30 border-indigo-200 text-indigo-700 dark:text-indigo-300' : 'border-slate-200 dark:border-slate-700 text-slate-500'}`}>{s.name}</button>)}
-          </div>
-          
-          <div className="max-w-xs mx-auto">
-             <div className="flex justify-between mb-2 text-sm font-bold text-slate-500 uppercase">
-               <span>Duration</span>
-               <span className="text-indigo-600">{Math.floor(duration / 60)}h {duration % 60}m</span>
-             </div>
-             <input 
-               type="range" min="5" max="720" step="5" 
-               value={duration} 
-               onChange={(e) => setDuration(Number(e.target.value))}
-               className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
-             />
-          </div>
-
-          <button onClick={toggle} className="bg-indigo-600 text-white px-8 py-3 rounded-xl font-bold shadow-lg hover:scale-105 transition-transform">Start Focus</button>
-        </div>
-      ) : (
-        <div className="flex gap-4 justify-center">
-          <button onClick={toggle} className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-white px-6 py-3 rounded-xl font-bold">Pause</button>
-          <button onClick={() => { setIsActive(false); onStatusChange(false); onComplete(subject, duration - Math.ceil(timeLeft/60)); }} className="bg-emerald-500 text-white px-6 py-3 rounded-xl font-bold">Finish Early</button>
-        </div>
-      )}
-    </div>
-  );
-};
-
-const Analytics = ({ user, feed }) => (
-  <div className="space-y-6">
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-      <StatCard icon={Clock} label="Total Time" value={`${Math.floor((feed.filter(f => f.userId === user.id).reduce((a,b) => a + b.duration, 0))/60)}h`} color="text-blue-500" bg="bg-blue-50" />
-      <StatCard icon={Activity} label="Sessions" value={feed.filter(f => f.userId === user.id).length} color="text-purple-500" bg="bg-purple-50" />
-      <StatCard icon={Flame} label="Streak" value={user.streak} color="text-orange-500" bg="bg-orange-50" />
-      <StatCard icon={Award} label="Badges" value={user.badges?.length || 0} color="text-emerald-500" bg="bg-emerald-50" />
-    </div>
-    <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700">
-      <h3 className="font-bold mb-4 text-slate-800 dark:text-white">Recent Badges</h3>
-      <div className="flex gap-2 flex-wrap">
-        {BADGES.map(b => (
-          <div key={b.id} className={`p-2 rounded-lg border flex items-center gap-2 ${user.badges?.includes(b.id) ? 'border-amber-200 bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-200' : 'border-slate-100 dark:border-slate-700 opacity-50 grayscale'}`}>
-            <span className="text-xl">{b.icon}</span>
-            <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{b.name}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  </div>
-);
-
-const GoalsView = ({ user, canEdit, onUpdate }) => {
-  const [txt, setTxt] = useState('');
-  const toggle = (id) => {
-    if(!canEdit) return;
-    const newGoals = user.goals.map(g => g.id === id ? { ...g, completed: !g.completed } : g);
-    onUpdate(newGoals);
-  };
-  const add = () => {
-    if(!txt) return;
-    onUpdate([...(user.goals || []), { id: Date.now().toString(), text: txt, completed: false }]);
-    setTxt('');
-  };
-
-  return (
-    <div className="max-w-2xl mx-auto">
-      <h2 className="text-2xl font-bold mb-6 text-slate-800 dark:text-white">Goals</h2>
-      <div className="space-y-3 mb-6">
-        {user.goals?.map(g => (
-          <div key={g.id} onClick={() => toggle(g.id)} className={`p-4 rounded-xl border flex items-center gap-3 cursor-pointer transition-all ${g.completed ? 'bg-emerald-50 border-emerald-200 dark:bg-emerald-900/20 dark:border-emerald-800 opacity-60' : 'bg-white dark:bg-slate-800 dark:border-slate-700 hover:border-indigo-300'}`}>
-            <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${g.completed ? 'bg-emerald-500 border-emerald-500' : 'border-slate-300 dark:border-slate-500'}`}>{g.completed && <CheckCircle size={14} className="text-white"/>}</div>
-            <span className={`font-medium ${g.completed ? 'line-through text-emerald-800 dark:text-emerald-300' : 'text-slate-800 dark:text-slate-200'}`}>{g.text}</span>
-          </div>
-        ))}
-        {(!user.goals || user.goals.length === 0) && <div className="text-center text-slate-400 py-8">No goals set yet.</div>}
-      </div>
-      {canEdit && (
-        <div className="flex gap-2">
-          <Input value={txt} onChange={setTxt} placeholder="Add a new goal..." />
-          <button onClick={add} className="bg-indigo-600 text-white px-6 rounded-xl font-bold hover:bg-indigo-700">Add</button>
-        </div>
-      )}
-    </div>
-  );
-};
-
-const StatCard = ({ icon: Icon, label, value, color, bg }) => (
-  <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700">
-    <div className={`w-10 h-10 ${bg} ${color} rounded-xl flex items-center justify-center mb-2 dark:bg-opacity-20`}>
-      <Icon size={20} />
-    </div>
-    <div className="text-2xl font-bold text-slate-900 dark:text-white">{value}</div>
-    <div className="text-xs font-bold text-slate-400 uppercase">{label}</div>
-  </div>
-);
-
-const BadgePopup = ({ badge }) => (
-  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fadeIn">
-    <div className="bg-white p-8 rounded-3xl shadow-2xl text-center border-4 border-amber-300 max-w-sm mx-4 transform animate-bounce">
-      <div className="text-6xl mb-4">{badge.icon}</div>
-      <h2 className="text-2xl font-bold text-amber-600 mb-2">Badge Unlocked!</h2>
-      <div className="text-xl font-bold mb-1 text-slate-800">{badge.name}</div>
-      <div className="text-slate-500">{badge.desc}</div>
-    </div>
-  </div>
-);
-
-const Sidebar = ({ view, setView, currentUser }) => (
-  <aside className="hidden md:flex flex-col w-64 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 h-screen sticky top-0">
-    <div className="p-6 border-b border-slate-100 dark:border-slate-700 flex items-center gap-2 text-indigo-600">
-      <Sparkles className="fill-current" />
-      <h1 className="font-bold text-xl">DuoLearn</h1>
-    </div>
-    <nav className="flex-1 p-4 space-y-2">
-      {[
-        { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-        { id: 'focus', icon: Timer, label: 'Focus Mode' },
-        { id: 'analytics', icon: BarChart3, label: 'Analytics' },
-        { id: 'goals', icon: Target, label: 'Goals' },
-        { id: 'settings', icon: Settings, label: 'Settings' }
-      ].map(item => (
-        <button 
-          key={item.id}
-          onClick={() => setView(item.id)}
-          className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-medium ${view === item.id ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
-        >
-          <item.icon size={20} /> {item.label}
-        </button>
-      ))}
-    </nav>
-    <div className="p-4 border-t border-slate-100 dark:border-slate-700">
-      <div className="flex items-center gap-3">
-        <Avatar icon={currentUser?.avatar || '👤'} />
-        <div className="overflow-hidden">
-          <p className="font-bold text-sm truncate text-slate-800 dark:text-white">{currentUser?.name}</p>
-          <p className="text-xs text-slate-500 truncate">{currentUser?.role}</p>
-        </div>
-      </div>
-    </div>
-  </aside>
-);
-
 const MobileNav = ({ view, setView, onLogClick }) => (
   <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 pb-safe z-40">
     <div className="flex justify-around p-2 items-end">
@@ -915,8 +701,8 @@ const MobileNav = ({ view, setView, onLogClick }) => (
       <div className="mb-4">
         <button onClick={onLogClick} className="bg-indigo-600 text-white p-4 rounded-full shadow-lg shadow-indigo-500/30 hover:scale-105 transition-transform"><Plus size={24} /></button>
       </div>
+      <NavBtn icon={Target} active={view === 'goals'} onClick={() => setView('goals')} label="Goals" />
       <NavBtn icon={BarChart3} active={view === 'analytics'} onClick={() => setView('analytics')} label="Stats" />
-      <NavBtn icon={Settings} active={view === 'settings'} onClick={() => setView('settings')} label="Settings" />
     </div>
   </nav>
 );
@@ -928,6 +714,7 @@ const NavBtn = ({ icon: Icon, active, onClick, label }) => (
   </button>
 );
 
+// ... (Other components remain the same: LoadingScreen, ErrorScreen, Avatar, ProgressBar, CalendarHeatmap)
 const LoadingScreen = () => (
   <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900 text-slate-400">
     <Sparkles className="animate-spin mr-2"/> Loading...
