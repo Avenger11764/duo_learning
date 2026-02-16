@@ -708,7 +708,11 @@ function FocusTimer({ user, onStatusChange, onComplete }) {
   useEffect(() => {
     let int;
     if (isActive && timeLeft > 0) int = setInterval(() => setTimeLeft(t => t - 1), 1000);
-    else if (timeLeft === 0 && isActive) { handleStop(); onComplete(subject, duration); }
+    else if (timeLeft === 0 && isActive) { 
+        handleStop(); 
+        onComplete(subject, duration); 
+        setTimeLeft(duration * 60); // Reset after natural finish
+    }
     return () => clearInterval(int);
   }, [isActive, timeLeft]);
 
@@ -733,6 +737,13 @@ function FocusTimer({ user, onStatusChange, onComplete }) {
       }
   }
 
+  const handleFinishEarly = () => {
+    handleStop();
+    const elapsed = duration - Math.ceil(timeLeft/60);
+    onComplete(subject, elapsed);
+    setTimeLeft(duration * 60); // Explicit reset
+  };
+
   return (
     <div className="max-w-md mx-auto text-center py-10">
       <div className={`w-64 h-64 mx-auto rounded-full border-8 flex items-center justify-center mb-8 transition-colors ${isActive ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/10' : 'border-slate-200 dark:border-slate-700'}`}>
@@ -752,7 +763,7 @@ function FocusTimer({ user, onStatusChange, onComplete }) {
       ) : (
         <div className="flex gap-4 justify-center">
           <button onClick={toggle} className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-white px-6 py-3 rounded-xl font-bold">Pause</button>
-          <button onClick={() => { handleStop(); onComplete(subject, duration - Math.ceil(timeLeft/60)); }} className="bg-emerald-500 text-white px-6 py-3 rounded-xl font-bold">Finish Early</button>
+          <button onClick={handleFinishEarly} className="bg-emerald-500 text-white px-6 py-3 rounded-xl font-bold">Finish Early</button>
         </div>
       )}
     </div>
