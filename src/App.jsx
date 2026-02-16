@@ -74,7 +74,7 @@ const BADGES = [
   }},
 ];
 
-// --- UI COMPONENTS (Defined before use to prevent ReferenceErrors) ---
+// --- UI COMPONENTS ---
 
 const Avatar = ({ icon, size = 'text-2xl', bg = 'bg-slate-100', className = '' }) => (
   <div className={`w-12 h-12 ${bg} dark:bg-slate-700 rounded-full flex items-center justify-center ${size} shadow-sm border border-slate-200 dark:border-slate-600 ${className}`}>
@@ -336,11 +336,13 @@ const Header = ({ view, isSpying, displayUser, otherUsers, onSetSpyTarget, onLog
 
 const LoginScreen = ({ users, onLogin, onSignup, isSaving }) => {
   const [mode, setMode] = useState(Object.keys(users).length === 0 ? 'signup' : 'login');
+  // Signup State
   const [name, setName] = useState('');
   const [role, setRole] = useState('');
   const [sub1, setSub1] = useState('');
   const [sub2, setSub2] = useState('');
   const [signupPassword, setSignupPassword] = useState('');
+  // Login State
   const [selectedUser, setSelectedUser] = useState(null);
   const [loginPassword, setLoginPassword] = useState('');
 
@@ -480,9 +482,10 @@ const FocusTimer = ({ user, onStatusChange, onComplete }) => {
   const [timeLeft, setTimeLeft] = useState(25 * 60);
   const [subject, setSubject] = useState(user.subjects?.[0] || {});
   
+  // FIX: Reset time only when duration changes AND timer is inactive
   useEffect(() => {
     if (!isActive) setTimeLeft(duration * 60);
-  }, [duration, isActive]);
+  }, [duration]);
 
   useEffect(() => {
     let int;
@@ -498,7 +501,9 @@ const FocusTimer = ({ user, onStatusChange, onComplete }) => {
     if(!isActive) { 
         setIsActive(true); 
         onStatusChange(true, duration, subject.name);
-        if (document.documentElement.requestFullscreen) {
+        
+        // FIX: Mobile only check for fullscreen
+        if (window.innerWidth < 768 && document.documentElement.requestFullscreen) {
             document.documentElement.requestFullscreen().catch((e) => console.log(e));
         }
     } else { 
@@ -510,7 +515,7 @@ const FocusTimer = ({ user, onStatusChange, onComplete }) => {
   const handleStop = () => {
       setIsActive(false);
       onStatusChange(false);
-      if (document.exitFullscreen) {
+      if (document.exitFullscreen && document.fullscreenElement) {
         document.exitFullscreen().catch((e) => console.log(e));
       }
   }
@@ -527,6 +532,7 @@ const FocusTimer = ({ user, onStatusChange, onComplete }) => {
           <div className="flex gap-2 justify-center flex-wrap">
             {user.subjects?.map(s => <button key={s.id} onClick={() => setSubject(s)} className={`px-3 py-1 rounded-full text-xs font-bold border ${subject.id === s.id ? 'bg-indigo-100 dark:bg-indigo-900/30 border-indigo-200 text-indigo-700 dark:text-indigo-300' : 'border-slate-200 dark:border-slate-700 text-slate-500'}`}>{s.name}</button>)}
           </div>
+          
           <div className="max-w-xs mx-auto">
              <div className="flex justify-between mb-2 text-sm font-bold text-slate-500 uppercase">
                <span>Duration</span>
@@ -539,6 +545,7 @@ const FocusTimer = ({ user, onStatusChange, onComplete }) => {
                className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
              />
           </div>
+
           <button onClick={toggle} className="bg-indigo-600 text-white px-8 py-3 rounded-xl font-bold shadow-lg hover:scale-105 transition-transform">Start Focus</button>
         </div>
       ) : (
@@ -572,6 +579,90 @@ const Analytics = ({ user, feed }) => (
     </div>
   </div>
 );
+
+const GoalsView = ({ user, canEdit, onUpdate }) => {
+  const [txt, setTxt] = useState('');
+  const toggle = (id) => {
+    if(!canEdit) return;
+    const newGoals = user.goals.map(g => g.id === id ? { ...g, completed: !g.completed } : g);
+    onUpdate(newGoals);
+  };
+  const add = () => {
+    if(!txt) return;
+    onUpdate([...(user.goals || []), { id: Date.now().toString(), text: txt, completed: false }]);
+    setTxt('');
+  };
+
+  return (
+    <div className="max-w-2xl mx-auto">
+      <h2 className="text-2xl font-bold mb-6 text-slate-800 dark:text-white">Goals</h2>
+      <div className="space-y-3 mb-6">
+        {user.goals?.map(g => (
+          <div key={g.id} onClick={() => toggle(g.id)} className={`p-4 rounded-xl border flex items-center gap-3 cursor-pointer transition-all ${g.completed ? 'bg-emerald-50 border-emerald-200 dark:bg-emerald-900/20 dark:border-emerald-800 opacity-60' : 'bg-white dark:bg-slate-800 dark:border-slate-700 hover:border-indigo-300'}`}>
+            <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${g.completed ? 'bg-emerald-500 border-emerald-500' : 'border-slate-300 dark:border-slate-500'}`}>{g.completed && <CheckCircle size={14} className="text-white"/>}</div>
+            <span className={`font-medium ${g.completed ? 'line-through text-emerald-800 dark:text-emerald-300' : 'text-slate-800 dark:text-slate-200'}`}>{g.text}</span>
+          </div>
+        ))}
+        {(!user.goals || user.goals.length === 0) && <div className="text-center text-slate-400 py-8">No goals set yet.</div>}
+      </div>
+      {canEdit && (
+        <div className="flex gap-2">
+          <Input value={txt} onChange={setTxt} placeholder="Add a new goal..." />
+          <button onClick={add} className="bg-indigo-600 text-white px-6 rounded-xl font-bold hover:bg-indigo-700">Add</button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const SettingsView = ({ user, onUpdate, onLogout, onReset }) => {
+  const [name, setName] = useState(user.name);
+  const [role, setRole] = useState(user.role);
+  const [newSub, setNewSub] = useState('');
+
+  const handleAddSubject = () => {
+    if(!newSub) return;
+    const newSubjects = [...(user.subjects || []), { 
+      id: Date.now().toString(), name: newSub, progress: 0, color: 'bg-indigo-500' 
+    }];
+    onUpdate({ subjects: newSubjects });
+    setNewSub('');
+  };
+
+  return (
+    <div className="max-w-2xl space-y-8 pb-20">
+      <div className="flex justify-between items-center"><h2 className="text-2xl font-bold text-slate-800 dark:text-white">Settings</h2><button onClick={onReset} className="text-red-500 text-sm flex items-center gap-1 hover:underline"><RefreshCw size={14}/> Reset All Data</button></div>
+      <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700">
+        <h3 className="font-bold mb-4 flex items-center gap-2 text-slate-800 dark:text-white"><User size={20}/> Public Profile</h3>
+        <div className="space-y-4">
+          <Input label="Display Name" value={name} onChange={setName} />
+          <Input label="Role / Title" value={role} onChange={setRole} />
+          <button onClick={() => onUpdate({ name, role })} className="bg-indigo-600 text-white px-5 py-2 rounded-lg font-bold hover:bg-indigo-700">Save Changes</button>
+        </div>
+      </div>
+      <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700">
+        <h3 className="font-bold mb-4 flex items-center gap-2 text-slate-800 dark:text-white"><BookOpen size={20}/> Manage Subjects</h3>
+        <div className="space-y-2 mb-4">
+          {user.subjects?.map(s => (
+            <div key={s.id} className="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-100 dark:border-slate-700">
+              <span className="font-medium text-slate-800 dark:text-white">{s.name}</span>
+              <button onClick={() => onUpdate({ subjects: user.subjects.filter(sub => sub.id !== s.id) })} className="text-slate-400 hover:text-red-500"><Trash2 size={16}/></button>
+            </div>
+          ))}
+        </div>
+        <div className="flex gap-2">
+          <Input value={newSub} onChange={setNewSub} placeholder="New Subject Name" />
+          <button onClick={handleAddSubject} className="bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-4 rounded-lg font-bold">Add</button>
+        </div>
+      </div>
+      <div className="pt-8 border-t border-slate-200 dark:border-slate-700">
+        <button onClick={onLogout} className="w-full bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-slate-300">
+          <LogOut size={18}/> Log Out
+        </button>
+      </div>
+    </div>
+  );
+};
 
 const LogModal = ({ user, onClose, onSubmit, isSaving }) => {
   const [sub, setSub] = useState(user.subjects?.[0] || {});
@@ -612,269 +703,6 @@ const LogModal = ({ user, onClose, onSubmit, isSaving }) => {
     </div>
   );
 };
-
-// --- ERROR BOUNDARY ---
-class ErrorBoundary extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
-  static getDerivedStateFromError(error) { return { hasError: true, error }; }
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
-          <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full border-l-4 border-red-500">
-            <h2 className="text-2xl font-bold text-slate-800 mb-2">Something went wrong</h2>
-            <p className="text-slate-500 mb-4 text-sm">The app crashed due to an unexpected error.</p>
-            <div className="bg-slate-100 p-3 rounded mb-6 text-xs font-mono text-red-600 overflow-auto max-h-32">
-              {this.state.error.toString()}
-            </div>
-            <button onClick={() => { localStorage.clear(); window.location.reload(); }} className="w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-xl font-bold">
-              Reset Local Data & Reload
-            </button>
-          </div>
-        </div>
-      );
-    }
-    return this.props.children; 
-  }
-}
-
-// --- MAIN APP COMPONENT ---
-function AppContent() {
-  const [user, setAuthUser] = useState(null);
-  const [currentUserId, setCurrentUserId] = useState(() => localStorage.getItem('duo_current_user_id'));
-  const [usersMap, setUsersMap] = useState({});
-  const [feedData, setFeedData] = useState([]);
-  const [view, setView] = useState('dashboard');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  
-  // UI State
-  const [isLogModalOpen, setIsLogModalOpen] = useState(false);
-  const [showConfetti, setShowConfetti] = useState(false);
-  const [unlockedBadge, setUnlockedBadge] = useState(null);
-  const [spyTargetId, setSpyTargetId] = useState(null); // ID of user we are viewing
-  const [isSaving, setIsSaving] = useState(false);
-
-  // 1. Auth & Data Sync
-  useEffect(() => {
-    const initAuth = async () => {
-      if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-        await signInWithCustomToken(auth, __initial_auth_token);
-      } else {
-        await signInAnonymously(auth);
-      }
-    };
-    initAuth().catch(err => setError("Auth Failed: " + err.message));
-    return onAuthStateChanged(auth, setAuthUser);
-  }, []);
-
-  useEffect(() => {
-    if (!user) return;
-
-    const unsubUsers = onSnapshot(getCollectionPath('duo_users'), (snap) => {
-      const users = {};
-      snap.forEach(doc => users[doc.id] = { id: doc.id, ...doc.data() });
-      setUsersMap(users);
-      setLoading(false);
-    }, (err) => setError("DB Error: " + err.message));
-
-    const unsubLogs = onSnapshot(getCollectionPath('duo_logs'), (snap) => {
-      const logs = [];
-      snap.forEach(doc => logs.push({ id: doc.id, ...doc.data() }));
-      logs.sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
-      setFeedData(logs);
-    });
-
-    return () => { unsubUsers(); unsubLogs(); };
-  }, [user]);
-
-  // --- ACTIONS ---
-
-  const handleLogin = (id) => {
-    setCurrentUserId(id);
-    localStorage.setItem('duo_current_user_id', id);
-  };
-
-  const handleLogout = () => {
-    setCurrentUserId(null);
-    localStorage.removeItem('duo_current_user_id');
-    setSpyTargetId(null);
-  };
-
-  const resetDatabase = async () => {
-    const password = prompt("Enter admin password to reset database:");
-    if(password !== "admin123") {
-        if (password !== null) alert("Incorrect password.");
-        return;
-    }
-
-    if(!confirm("Are you sure? This will delete ALL users and logs permanently.")) return;
-    setIsSaving(true);
-    try {
-        const usersSnap = await getDocs(getCollectionPath('duo_users'));
-        const logsSnap = await getDocs(getCollectionPath('duo_logs'));
-        
-        const promises = [];
-        usersSnap.forEach(d => promises.push(deleteDoc(d.ref)));
-        logsSnap.forEach(d => promises.push(deleteDoc(d.ref)));
-        await Promise.all(promises);
-        
-        localStorage.clear();
-        window.location.reload();
-    } catch(e) {
-        alert("Reset failed: " + e.message);
-        setIsSaving(false);
-    }
-  };
-
-  const handleSignup = async (name, role, subjects, password) => {
-    if (!user) return alert("Connecting... try again in a few seconds.");
-    setIsSaving(true);
-    try {
-        const newId = 'user_' + Date.now();
-        const newUser = {
-          name, role, subjects, password, 
-          xp: 0, level: 1, maxXp: 500, streak: 0, lastStudyDate: null,
-          badges: [], goals: [],
-          focusStatus: { isActive: false, endTime: null, subject: '' }
-        };
-        await setDoc(getDocRef('duo_users', newId), newUser);
-        handleLogin(newId);
-    } catch (e) {
-        console.error(e);
-        alert("Failed to create profile: " + e.message);
-    } finally {
-        setIsSaving(false);
-    }
-  };
-
-  const updateProfile = async (updates) => {
-    if (!currentUserId) return;
-    setIsSaving(true);
-    try {
-        await updateDoc(getDocRef('duo_users', currentUserId), updates);
-    } catch (e) {
-        alert("Failed to update: " + e.message);
-    } finally {
-        setIsSaving(false);
-    }
-  };
-
-  const addLog = async (subject, duration, note) => {
-    const currentUser = usersMap[currentUserId];
-    if (!currentUser) return;
-    setIsSaving(true);
-
-    try {
-        const xpGained = parseInt(duration) * 2;
-        let newXp = (currentUser.xp || 0) + xpGained;
-        let newLevel = currentUser.level || 1;
-        let newMaxXp = currentUser.maxXp || 500;
-
-        if (newXp >= newMaxXp) {
-          newXp -= newMaxXp;
-          newLevel += 1;
-          newMaxXp = Math.floor(newMaxXp * 1.2);
-          setShowConfetti(true);
-          setTimeout(() => setShowConfetti(false), 3000);
-        }
-
-        const newStreak = calculateStreak(currentUser.streak || 0, currentUser.lastStudyDate);
-        const currentBadges = currentUser.badges || [];
-        const earnedBadges = [...currentBadges];
-        let newlyUnlocked = null;
-        
-        BADGES.forEach(badge => {
-            if (!earnedBadges.includes(badge.id)) {
-                if (badge.condition({ ...currentUser, xp: currentUser.xp + xpGained, level: newLevel, streak: newStreak }, { duration })) {
-                    earnedBadges.push(badge.id);
-                    newlyUnlocked = badge;
-                }
-            }
-        });
-
-        if (newlyUnlocked) {
-            setUnlockedBadge(newlyUnlocked);
-            setTimeout(() => setUnlockedBadge(null), 4000);
-        }
-
-        await updateDoc(getDocRef('duo_users', currentUserId), {
-          xp: newXp, level: newLevel, maxXp: newMaxXp, streak: newStreak,
-          lastStudyDate: new Date().toISOString(), badges: earnedBadges,
-          subjects: currentUser.subjects?.map(s => s.id === subject.id ? { ...s, progress: Math.min(100, (s.progress || 0) + 5) } : s)
-        });
-
-        await addDoc(getCollectionPath('duo_logs'), {
-          userId: currentUserId, userName: currentUser.name, userAvatar: currentUser.avatar || '👤',
-          action: 'studied', subject: subject.name, duration: parseInt(duration), note, likes: 0,
-          timestamp: serverTimestamp()
-        });
-        
-        setIsLogModalOpen(false);
-    } catch (e) {
-        alert("Failed to log: " + e.message);
-    } finally {
-        setIsSaving(false);
-    }
-  };
-
-  // --- RENDER HELPERS ---
-  if (error) return <ErrorScreen error={error} />;
-  if (loading) return <LoadingScreen />;
-
-  // 3. Login Screen
-  if (!currentUserId || !usersMap[currentUserId]) {
-    return <LoginScreen users={usersMap} onLogin={handleLogin} onSignup={handleSignup} isSaving={isSaving} />;
-  }
-
-  // 4. Main App Logic
-  const myself = usersMap[currentUserId];
-  const otherUsers = Object.values(usersMap).filter(u => u.id !== currentUserId);
-  
-  // Decide who to show on dashboard
-  const isSpying = !!spyTargetId;
-  const displayUser = isSpying ? usersMap[spyTargetId] : myself;
-
-  // Fallback if spy target disappeared
-  if (isSpying && !displayUser) setSpyTargetId(null);
-
-  return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 md:flex font-sans">
-      {showConfetti && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm pointer-events-none"><div className="text-6xl animate-bounce">🎉 LEVEL UP! 🎉</div></div>}
-      {unlockedBadge && <BadgePopup badge={unlockedBadge} />}
-
-      <Sidebar view={view} setView={(v) => { setView(v); setSpyTargetId(null); }} currentUser={myself} />
-
-      <div className="flex-1 flex flex-col min-w-0">
-        <Header 
-          view={view} 
-          isSpying={isSpying} 
-          displayUser={displayUser} 
-          otherUsers={otherUsers}
-          onSetSpyTarget={setSpyTargetId}
-          onLogClick={() => setIsLogModalOpen(true)} 
-          isSaving={isSaving}
-        />
-
-        <main className="flex-1 p-4 md:p-8 overflow-y-auto">
-          <div className="max-w-5xl mx-auto">
-            {view === 'dashboard' && <Dashboard displayUser={displayUser} feed={feedData} isSpying={isSpying} />}
-            {view === 'focus' && !isSpying && <FocusTimer user={myself} onStatusChange={async (isActive, mins, subj) => { try { await updateDoc(getDocRef('duo_users', currentUserId), { focusStatus: { isActive, endTime: isActive ? Date.now() + (mins * 60000) : null, subject: subj } }); } catch(e){} }} onComplete={(s, d) => addLog(s, d, "Focus Session Complete")} />}
-            {view === 'analytics' && <Analytics user={displayUser} feed={feedData} />}
-            {view === 'settings' && !isSpying && <SettingsView user={myself} onUpdate={updateProfile} onLogout={handleLogout} onReset={resetDatabase} />}
-            {view === 'goals' && <GoalsView user={displayUser} canEdit={!isSpying} onUpdate={async (goals) => { try { await updateDoc(getDocRef('duo_users', displayUser.id), { goals }); } catch(e){} }} />}
-          </div>
-        </main>
-      </div>
-
-      <MobileNav view={view} setView={(v) => { setView(v); setSpyTargetId(null); }} onLogClick={() => setIsLogModalOpen(true)} />
-      {isLogModalOpen && <LogModal user={myself} onClose={() => setIsLogModalOpen(false)} onSubmit={addLog} isSaving={isSaving} />}
-    </div>
-  );
-}
 
 // Wrap default export with Error Boundary
 export default function App() {
