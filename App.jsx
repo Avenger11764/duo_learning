@@ -277,7 +277,7 @@ function AppContent() {
 
       <Sidebar view={view} setView={(v) => { setView(v); setSpyTargetId(null); }} currentUser={myself} />
 
-      <div className="flex-1 flex flex-col min-w-0 pb-20 md:pb-0"> {/* Added pb-20 so content isn't hidden behind mobile nav */}
+      <div className="flex-1 flex flex-col min-w-0 pb-28 md:pb-0"> {/* Added pb-28 so content isn't hidden behind taller mobile nav */}
         <Header 
           view={view} isSpying={isSpying} displayUser={displayUser} otherUsers={otherUsers}
           onSetSpyTarget={setSpyTargetId} onLogClick={() => setIsLogModalOpen(true)} isSaving={isSaving}
@@ -346,12 +346,11 @@ function StatCard({ icon: Icon, label, value, color, bg }) {
   );
 }
 
-// NavBtn updated with flex-1 and smaller text so 6 items fit perfectly
 function NavBtn({ icon: Icon, active, onClick, label }) {
   return (
-    <button onClick={onClick} className={`flex flex-col items-center justify-center gap-1 p-1 flex-1 ${active ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400'}`}>
-      <Icon size={22} strokeWidth={active ? 2.5 : 2} />
-      <span className="text-[9px] font-medium truncate w-full text-center">{label}</span>
+    <button onClick={onClick} className={`flex flex-col items-center justify-center gap-1 p-1 w-14 ${active ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-500 dark:text-slate-400 hover:text-indigo-500'}`}>
+      <Icon size={24} strokeWidth={active ? 2.5 : 2} />
+      <span className="text-[10px] font-semibold tracking-tight">{label}</span>
     </button>
   );
 }
@@ -519,15 +518,15 @@ function Sidebar({ view, setView, currentUser }) {
 
 function MobileNav({ view, setView, onLogClick }) {
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 pb-safe z-40">
-      <div className="flex justify-between px-2 py-1 items-end">
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 z-50 pt-2 pb-6 px-2 shadow-[0_-4px_10px_rgba(0,0,0,0.05)]">
+      <div className="flex justify-between items-center max-w-md mx-auto relative">
         <NavBtn icon={LayoutDashboard} active={view === 'dashboard'} onClick={() => setView('dashboard')} label="Home" />
         <NavBtn icon={Timer} active={view === 'focus'} onClick={() => setView('focus')} label="Focus" />
         
         {/* Floating Add Button in the middle */}
-        <div className="mb-2 shrink-0 px-2">
-          <button onClick={onLogClick} className="bg-indigo-600 text-white p-3 rounded-full shadow-lg shadow-indigo-500/30 hover:scale-105 transition-transform">
-            <Plus size={24} />
+        <div className="relative -top-5 px-2">
+          <button onClick={onLogClick} className="bg-indigo-600 text-white p-4 rounded-full shadow-lg shadow-indigo-500/40 hover:scale-105 transition-transform flex items-center justify-center border-4 border-white dark:border-slate-800">
+            <Plus size={24} strokeWidth={3} />
           </button>
         </div>
         
