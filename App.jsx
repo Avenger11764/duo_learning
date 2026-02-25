@@ -5,7 +5,7 @@ import {
   LayoutDashboard, LogOut, Settings, User, Trash2, 
   BarChart3, Save, X, Timer, Award, Play, Calendar,
   AlertCircle, RefreshCw, Eye, EyeOff, Loader2, Lock, Users,
-  Maximize, Minimize
+  Maximize, Minimize, Menu
 } from 'lucide-react';
 
 // Import Firebase functions
@@ -39,6 +39,34 @@ const db = getFirestore(app);
 // Helper for App ID
 const rawAppId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 const appId = rawAppId.replace(/[^a-zA-Z0-9_-]/g, '_');
+
+// --- HELPER FOR DB PATHS ---
+const getCollectionPath = (collectionName) => {
+  if (isCanvasEnvironment) {
+    return collection(db, 'artifacts', appId, 'public', 'data', collectionName);
+  }
+  return collection(db, collectionName);
+};
+
+const getDocRef = (collectionName, docId) => {
+  if (isCanvasEnvironment) {
+    return doc(db, 'artifacts', appId, 'public', 'data', collectionName, docId);
+  }
+  return doc(db, collectionName, docId);
+};
+
+const calculateStreak = (currentStreak, lastDateStr) => {
+  if (!lastDateStr) return 1;
+  const lastDate = new Date(lastDateStr);
+  const today = new Date();
+  lastDate.setHours(0,0,0,0);
+  today.setHours(0,0,0,0);
+  const diffTime = Math.abs(today - lastDate);
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+  if (diffDays === 0) return currentStreak;
+  if (diffDays === 1) return currentStreak + 1;
+  return 1;
+};
 
 // --- CONSTANTS ---
 const BADGES = [
@@ -253,6 +281,7 @@ function AppContent() {
         <Header 
           view={view} isSpying={isSpying} displayUser={displayUser} otherUsers={otherUsers}
           onSetSpyTarget={setSpyTargetId} onLogClick={() => setIsLogModalOpen(true)} isSaving={isSaving}
+          setView={setView}
         />
         <main className="flex-1 p-4 md:p-8 overflow-y-auto">
           <div className="max-w-5xl mx-auto">
@@ -488,7 +517,6 @@ function Sidebar({ view, setView, currentUser }) {
   );
 }
 
-// Updated MobileNav with Settings included
 function MobileNav({ view, setView, onLogClick }) {
   return (
     <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 pb-safe z-40">
@@ -510,8 +538,10 @@ function MobileNav({ view, setView, onLogClick }) {
   );
 }
 
-function Header({ view, isSpying, displayUser, otherUsers, onSetSpyTarget, onLogClick, isSaving }) {
+function Header({ view, isSpying, displayUser, otherUsers, onSetSpyTarget, onLogClick, isSaving, setView }) {
   const [showSpyMenu, setShowSpyMenu] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
   useEffect(() => {
     const close = () => setShowSpyMenu(false);
     if(showSpyMenu) window.addEventListener('click', close);
@@ -519,38 +549,79 @@ function Header({ view, isSpying, displayUser, otherUsers, onSetSpyTarget, onLog
   }, [showSpyMenu]);
 
   return (
-    <header className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-700 px-6 py-4 flex items-center justify-between sticky top-0 z-30">
-      <div className="flex items-center gap-2">
-        <h2 className="text-xl font-bold capitalize text-slate-800 dark:text-white hidden md:block">
-          {isSpying ? `Viewing ${displayUser.name}` : (view === 'analytics' ? 'Analytics' : view)}
-        </h2>
-        {isSaving && <span className="text-xs text-slate-400 flex items-center gap-1"><Loader2 size={12} className="animate-spin"/> Saving...</span>}
-      </div>
-      <div className="flex items-center gap-3 ml-auto">
-        {otherUsers.map(u => {
-           const isFocusing = u.focusStatus?.isActive && u.focusStatus?.endTime && u.focusStatus.endTime > Date.now();
-           if (!isFocusing) return null;
-           return <div key={u.id} className="hidden sm:flex items-center gap-2 bg-rose-50 text-rose-600 px-3 py-1.5 rounded-full text-xs font-bold animate-pulse border border-rose-100"><div className="w-2 h-2 bg-rose-500 rounded-full animate-ping" />{u.name} is focusing...</div>;
-        })}
-        {!isSpying && <button onClick={onLogClick} className="hidden md:flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition-transform hover:scale-105"><Plus size={18} /> Log Study</button>}
-        {otherUsers.length > 0 && (
-          <div className="relative" onClick={(e) => e.stopPropagation()}>
-            <button onClick={() => isSpying ? onSetSpyTarget(null) : (otherUsers.length === 1 ? onSetSpyTarget(otherUsers[0].id) : setShowSpyMenu(!showSpyMenu))} className={`flex items-center gap-2 px-4 py-2 rounded-full font-bold text-sm border transition-all ${isSpying ? 'bg-amber-100 text-amber-800 border-amber-200' : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'}`}>
-              {isSpying ? <><ArrowRight size={14} /> Back to Me</> : <><Eye size={14} /> {otherUsers.length === 1 ? `View ${otherUsers[0].name}` : "View Partner"}</>}
-            </button>
-            {showSpyMenu && !isSpying && (
-              <div className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 overflow-hidden z-50">
-                <div className="p-2 text-xs font-bold text-slate-400 uppercase">Select Profile</div>
-                {otherUsers.map(u => (
-                  <button key={u.id} onClick={() => { onSetSpyTarget(u.id); setShowSpyMenu(false); }} className="w-full text-left px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-3">
-                    <Avatar icon={u.avatar || '👤'} size="text-sm" className="w-6 h-6"/><span className="font-bold text-slate-700 dark:text-slate-200">{u.name}</span>
-                  </button>
-                ))}
-              </div>
-            )}
+    <header className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-700 sticky top-0 z-30">
+      <div className="px-6 py-4 flex items-center justify-between">
+        {/* Left side: Logo & Title */}
+        <div className="flex items-center gap-2">
+          <h2 className="text-xl font-bold capitalize text-slate-800 dark:text-white hidden md:block">
+            {isSpying ? `Viewing ${displayUser.name}` : (view === 'analytics' ? 'Analytics' : view)}
+          </h2>
+          {/* Mobile Logo */}
+          <div className="md:hidden flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
+            <Sparkles size={24} /> <span className="font-bold">DuoLearn</span>
           </div>
-        )}
+          {isSaving && <span className="text-xs text-slate-400 flex items-center gap-1"><Loader2 size={12} className="animate-spin"/> Saving...</span>}
+        </div>
+
+        {/* Right side: Actions */}
+        <div className="flex items-center gap-3 ml-auto">
+          {otherUsers.map(u => {
+             const isFocusing = u.focusStatus?.isActive && u.focusStatus?.endTime && u.focusStatus.endTime > Date.now();
+             if (!isFocusing) return null;
+             return <div key={u.id} className="hidden sm:flex items-center gap-2 bg-rose-50 text-rose-600 px-3 py-1.5 rounded-full text-xs font-bold animate-pulse border border-rose-100"><div className="w-2 h-2 bg-rose-500 rounded-full animate-ping" />{u.name} is focusing...</div>;
+          })}
+          
+          {!isSpying && (
+            <button onClick={onLogClick} className="hidden md:flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition-transform hover:scale-105">
+              <Plus size={18} /> Log Study
+            </button>
+          )}
+
+          {otherUsers.length > 0 && (
+            <div className="relative" onClick={(e) => e.stopPropagation()}>
+              <button onClick={() => isSpying ? onSetSpyTarget(null) : (otherUsers.length === 1 ? onSetSpyTarget(otherUsers[0].id) : setShowSpyMenu(!showSpyMenu))} className={`flex items-center gap-2 px-4 py-2 rounded-full font-bold text-sm border transition-all ${isSpying ? 'bg-amber-100 text-amber-800 border-amber-200' : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'}`}>
+                {isSpying ? <><ArrowRight size={14} /> Back to Me</> : <><Eye size={14} /> {otherUsers.length === 1 ? `View ${otherUsers[0].name}` : "View Partner"}</>}
+              </button>
+              {showSpyMenu && !isSpying && (
+                <div className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 overflow-hidden z-50">
+                  <div className="p-2 text-xs font-bold text-slate-400 uppercase">Select Profile</div>
+                  {otherUsers.map(u => (
+                    <button key={u.id} onClick={() => { onSetSpyTarget(u.id); setShowSpyMenu(false); }} className="w-full text-left px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-3">
+                      <Avatar icon={u.avatar || '👤'} size="text-sm" className="w-6 h-6"/><span className="font-bold text-slate-700 dark:text-slate-200">{u.name}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Mobile Hamburger Button */}
+          <div className="md:hidden flex items-center ml-1">
+            <button
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="p-2 -mr-2 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 focus:outline-none transition-colors text-slate-600 dark:text-slate-300"
+            >
+              {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            </button>
+          </div>
+        </div>
       </div>
+
+      {/* Mobile Dropdown Menu */}
+      {isMobileMenuOpen && (
+        <div className="md:hidden px-4 pb-4 border-t border-slate-200 dark:border-slate-700 pt-3 space-y-2 bg-white dark:bg-slate-800/95 backdrop-blur-md">
+          <button
+            onClick={() => {
+              setView('settings');
+              setIsMobileMenuOpen(false);
+            }}
+            className="flex w-full items-center gap-3 px-4 py-3 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors shadow-sm text-left"
+          >
+            <Settings className="w-6 h-6" />
+            <span className="font-semibold text-base">Settings & Subjects</span>
+          </button>
+        </div>
+      )}
     </header>
   );
 }
