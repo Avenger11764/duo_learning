@@ -1,5 +1,7 @@
 # 📚 DuoLearning Platform
 
+🌐 **Live Demo:** [duo-learning.vercel.app](https://duo-learning.vercel.app/)
+
 DuoLearning is a modern, high-performance, and visually stunning gamified learning platform built to help students master complex subjects through rapid feedback loops and social accountability. Experience flow-state education designed for developer and engineering roadmaps.
 
 ---
